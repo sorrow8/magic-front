@@ -1,5 +1,7 @@
 .App {
-  text-align: center;
+  min-height: 100vh;
+  background: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 .App-logo {
@@ -14,18 +16,304 @@
 }
 
 .App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  background: #fff;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.App-link {
-  color: #61dafb;
+.App-header h1 {
+  color: #0f172a;
+  margin: 0;
+  padding: 32px 0 20px 0;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  text-align: center;
+}
+
+.App-nav {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0 0 8px 0;
+}
+
+.App-main {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 48px 24px;
+  background: #fafbfc;
+  min-height: calc(100vh - 140px);
+}
+
+/* Navigation styles */
+.navigation {
+  display: flex;
+  justify-content: center;
+}
+
+.nav-tab {
+  background: none;
+  border: none;
+  padding: 12px 24px;
+  margin: 0 8px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  text-decoration: none;
+  position: relative;
+}
+
+.nav-tab:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+  transform: translateY(-1px);
+}
+
+.nav-tab.active {
+  color: #3b82f6;
+  background: #eff6ff;
+  font-weight: 700;
+}
+
+/* Page content */
+.page {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 40px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04);
+}
+
+.page h2 {
+  margin: 0 0 32px 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* Balance display */
+.balance-display {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.balance-main {
+  font-size: 36px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 12px;
+  font-feature-settings: "tnum";
+}
+
+.balance-currency {
+  font-size: 16px;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.balance-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 40px;
+  border-top: 1px solid #e2e8f0;
+  border-radius: 0 0 16px 16px;
+  overflow: hidden;
+}
+
+.balance-item {
+  padding: 32px;
+  background: #f8fafc;
+}
+
+.balance-item:first-child {
+  border-right: 1px solid #e2e8f0;
+}
+
+.balance-label {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.balance-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  font-feature-settings: "tnum";
+  display: block;
+}
+
+.balance-unit {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-top: 4px;
+  display: block;
+  font-weight: 500;
+}
+
+/* Buttons */
+.button-group {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin: 40px 0;
+}
+
+.button {
+  padding: 14px 28px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.button-primary {
+  background: #3b82f6;
+  color: #fff;
+  border-color: #3b82f6;
+}
+
+.button-primary:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px 0 rgba(59, 130, 246, 0.3);
+}
+
+.button-secondary {
+  background: #fff;
+  color: #374151;
+}
+
+.button-secondary:hover {
+  background: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* Tokens */
+.tokens-section {
+  margin-top: 40px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.tokens-header {
+  padding: 32px 40px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.tokens-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.tokens-count {
+  font-size: 15px;
+  color: #64748b;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+.token-item {
+  padding: 32px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background-color 0.15s ease;
+}
+
+.token-item:last-child {
+  border-bottom: none;
+}
+
+.token-item:hover {
+  background: #f8fafc;
+}
+
+.token-info {
+  flex: 1;
+}
+
+.token-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.token-id {
+  font-size: 14px;
+  color: #64748b;
+  font-feature-settings: "tnum";
+  font-weight: 500;
+}
+
+.token-balance-area {
+  text-align: right;
+  margin-left: 20px;
+}
+
+.token-balance {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  font-feature-settings: "tnum";
+}
+
+.token-symbol {
+  font-size: 14px;
+  color: #64748b;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* Status messages */
+.status {
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 32px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.status.loading {
+  color: #64748b;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+
+.status.error {
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+/* Empty state */
+.empty-state {
+  color: #64748b;
+  text-align: center;
+  padding: 60px 40px;
+  font-size: 15px;
+  font-weight: 500;
 }
 
 @keyframes App-logo-spin {
