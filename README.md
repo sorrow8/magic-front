@@ -1,3 +1,5 @@
+# Web App For Magic Arbuz Mint Contracts
+
 ## Installation
 
 ```bash
@@ -10,4 +12,4 @@ npm install
 yarn start
 ```
 
-# That's it
+### That's it
