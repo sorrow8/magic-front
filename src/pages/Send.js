@@ -1,310 +1,556 @@
-import { useState } from 'react';
-import { useResolve } from '../hooks/useResolve';
-import { useResolve2 } from '../hooks/useResolve2';
-import { useAlkaneBalance } from '../hooks/useAlkaneBalance';
+import { useState, useEffect } from 'react';
+import { useLaserEyes } from '@omnisat/lasereyes-react';
+import { useWalletTokens } from '../hooks/useWalletBalance';
+import { useMintCard } from '../hooks/useMintCard';
+import { useMempoolFees } from '../hooks/useMempoolFees';
+import { useBlockHeight } from '../hooks/useBlockHeight';
+import arbuzLogo from '../assets/arbuz.svg';
+import { ToggleButton, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Chip } from '@mui/material';
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Button,
+  Alert,
+  Paper,
+  CircularProgress
+} from '@mui/material';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import CloseIcon from '@mui/icons-material/Close';
+import RefreshIcon from '@mui/icons-material/Refresh';
+
+function FeeButton({ label, value, selected, onClick, inputMode, inputValue, onInputChange, onInputBlur, disabled }) {
+  return (
+    <ToggleButton
+      value={label.toLowerCase()}
+      selected={selected}
+      onChange={onClick}
+      disabled={disabled}
+      sx={{
+        width: '120px !important',
+        minWidth: '120px !important',
+        maxWidth: '120px !important',
+        minHeight: 56,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: 0,
+        flex: 'none',
+        background: selected 
+          ? 'linear-gradient(90deg, #ffd700 0%, #fffbe6 100%)' 
+          : 'linear-gradient(90deg, #7c3aed 0%, #2d1b4e 100%)',
+        color: '#ffffff',
+        textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+        border: selected 
+          ? '2px solid #ffd700' 
+          : '2px solid #7c3aed55',
+        boxShadow: selected 
+          ? '0 0 16px 2px #ffd70088' 
+          : '0 0 8px 1px #7c3aed55',
+        fontWeight: 700,
+        borderRadius: 3,
+        transition: 'all 0.18s',
+        '&:hover': {
+          background: selected
+            ? 'linear-gradient(90deg, #ffd700 0%, #fffbe6 100%)'
+            : 'linear-gradient(90deg, #a78bfa 0%, #7c3aed 100%)',
+          boxShadow: '0 0 24px 4px #ffd700cc',
+          color: '#ffffff',
+        },
+        '&.Mui-selected': {
+          background: 'linear-gradient(90deg, #ffd700 0%, #fffbe6 100%)',
+          color: '#ffffff',
+          textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+          border: '2px solid #ffd700',
+          boxShadow: '0 0 16px 2px #ffd70088',
+        },
+      }}
+    >
+      <>
+        <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '1rem', color: 'inherit' }}>
+          {label}
+        </Typography>
+        {inputMode ? (
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={inputValue}
+            onChange={e => {
+              const val = e.target.value.replace(/[^0-9]/g, '');
+              onInputChange({ target: { value: val } });
+            }}
+            onBlur={onInputBlur}
+            disabled={disabled}
+            autoFocus
+            style={{
+              width: 48,
+              fontSize: '1rem',
+              fontWeight: 700,
+              color: '#ffffff',
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              padding: 0,
+              textAlign: 'center',
+              boxShadow: 'none',
+              appearance: 'textfield',
+              textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+            }}
+          />
+        ) : (
+          <Typography variant="caption" sx={{ fontSize: '1rem', color: 'inherit', fontWeight: 500, width: '100%', textAlign: 'center', height: '20px', lineHeight: '20px', overflow: 'hidden' }}>
+            {value ? `${value} sat/vB` : '\u00A0'}
+          </Typography>
+        )}
+      </>
+    </ToggleButton>
+  );
+}
 
 function Send() {
-  const { resolveContract, loading, error, result } = useResolve();
-  const { 
-    resolveContract2, 
-    loading: loading2, 
-    error: error2, 
-    result: result2 
-  } = useResolve2();
-  const { filteredTokens, loading: balanceLoading } = useAlkaneBalance();
-  
+  const { connected, address } = useLaserEyes();
+  const { tokens, loading: tokensLoading, error: tokensError, hasArbuz, refetch: tokensRefetch } = useWalletTokens();
   const [selectedTokenId, setSelectedTokenId] = useState(null);
+  const [openMintModal, setOpenMintModal] = useState(false);
+  const [modalToken, setModalToken] = useState(null);
+  const { mintCard, minting, error, txid, result, clearResult } = useMintCard();
+  const { fees, loading: feesLoading } = useMempoolFees();
+  const { blockHeight, loading: blockLoading, mintInfo, refetch: blockRefetch } = useBlockHeight();
+  const [selectedFee, setSelectedFee] = useState('normal');
+  const [customFee, setCustomFee] = useState('');
+  
+  // Состояние для хранения результатов транзакций по UTXO
+  const [utxoResults, setUtxoResults] = useState({});
 
-  // Helper функция для получения уникального ID токена (включая ID руны для различия токенов в одном UTXO)
-  const getTokenId = (token) => `${token.outpoint.standardTxid}:${token.outpoint.vout}:${token.id.block}:${token.id.tx}`;
+  // Helper function to get unique token ID (including rune ID to distinguish tokens in the same UTXO)
+  const getTokenId = (token) => `${token.outpoint.txid}:${token.outpoint.vout}:${token.runes[0].rune.id.block}:${token.runes[0].rune.id.tx}`;
 
-  // Находим выбранный токен по ID
-  const selectedToken = filteredTokens.find(token => selectedTokenId === getTokenId(token));
+  // Отслеживаем успешный результат и сохраняем его для текущего UTXO
+  useEffect(() => {
+    if (result && result.success && txid && modalToken) {
+      const tokenId = getTokenId(modalToken);
+      setUtxoResults(prev => ({
+        ...prev,
+        [tokenId]: {
+          success: true,
+          txid: txid,
+          timestamp: Date.now()
+        }
+      }));
+    }
+  }, [result, txid, modalToken]);
 
-  const handleClaim = async () => {
+  // Find selected token by ID
+  const selectedToken = tokens.find(token => selectedTokenId === getTokenId(token));
+
+      const feeRate = selectedFee === 'normal' ? (fees?.normal || 1) : parseInt(customFee) || 1;
+
+  const handleMintCard = async () => {
     try {
-      const tokenAmount = selectedToken ? parseFloat(selectedToken.balance) : 0;
-      console.log(`🚀 CLAIM: Sending ${tokenAmount} tokens`);
-      
-      let manualUtxo = null;
-      if (selectedToken) {
-        manualUtxo = {
-          txId: selectedToken.outpoint.standardTxid,
-          outputIndex: selectedToken.outpoint.vout
-        };
+      if (tokens.length === 0) {
+        throw new Error('No ARBUZ Alkanes found. You need ARBUZ Alkanes to mint cards.');
       }
+      if (!modalToken) {
+        throw new Error('Please select an ARBUZ Alkane to use for minting.');
+      }
+      await mintCard(feeRate, modalToken); // Передаём выбранный UTXO
       
-      // Вызываем resolve опкод без параметра UP/DOWN
-      await resolveContract(2, 24, 22, tokenAmount, manualUtxo);
+      // Обновляем список токенов после успешного минта
+      setTimeout(() => {
+        tokensRefetch();
+      }, 2000); // Ждём 2 секунды для подтверждения транзакции
+      
+      // НЕ закрываем модал автоматически - пользователь сам закроет
     } catch (err) {
-      console.error('Claim failed:', err);
+      // Ошибка уже обработана в хуке useMintCard
     }
   };
 
-  const handleClaim2 = async () => {
-    try {
-      const tokenAmount = selectedToken ? parseFloat(selectedToken.balance) : 0;
-      console.log(`🟡 CLAIM2: Sending ${tokenAmount} tokens`);
-      
-      let manualUtxo = null;
-      if (selectedToken) {
-        manualUtxo = {
-          txId: selectedToken.outpoint.standardTxid,
-          outputIndex: selectedToken.outpoint.vout
-        };
-      }
-      
-      // Вызываем resolve2 опкод с другими параметрами
-      await resolveContract2(2, 8, 20, tokenAmount, manualUtxo);
-    } catch (err) {
-      console.error('Claim2 failed:', err);
+  const handleTokenClick = (token) => {
+    const tokenId = getTokenId(token);
+    setSelectedTokenId(tokenId);
+    setModalToken(token);
+    
+    // Проверяем, есть ли сохранённый результат для этого UTXO
+    const savedResult = utxoResults[tokenId];
+    if (!savedResult) {
+      clearResult(); // Очищаем предыдущий результат только если нет сохранённого
+    }
+    
+    setOpenMintModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setOpenMintModal(false);
+    setSelectedTokenId(null);
+    setModalToken(null);
+    setSelectedFee('normal');
+    setCustomFee('');
+    
+    // Очищаем результат только если он не сохранён для этого UTXO
+    if (selectedTokenId && utxoResults[selectedTokenId]) {
+      // Не очищаем результат - он сохранён для этого UTXO
+    } else {
+      clearResult(); // Очищаем результат при закрытии
     }
   };
 
   return (
-    <div className="page">
-      <h2>Resolve Contract</h2>
-      
-      {/* Список всех токенов */}
-      <div style={{ 
-        background: '#fff', 
-        border: '1px solid #e1e4e8',
-        borderRadius: '12px',
-        padding: '24px',
-        marginBottom: '32px'
-      }}>
-        <h3 style={{ 
-          margin: '0 0 16px 0', 
-          fontSize: '16px',
-          fontWeight: '600',
-          color: '#1f2937'
+    <Box sx={{ p: 3, maxWidth: 1000, mx: 'auto' }}>
+      {/* Wallet Connection Status */}
+      {!connected && (
+        <Alert severity="info" sx={{ mb: 2, borderRadius: 3, fontWeight: 700 }}>
+          🔗 Please connect your OYL wallet to mint cards
+        </Alert>
+      )}
+
+      {/* Card Mint Timing Reminder */}
+      {connected && mintInfo && (
+        <Card sx={{ 
+          mb: 2, 
+          background: mintInfo.canMintNow 
+            ? 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)' 
+            : 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)',
+          border: '2px solid #ffd700', 
+          boxShadow: mintInfo.canMintNow 
+            ? '0 8px 32px 0px rgba(34, 197, 94, 0.4), 0 4px 16px 0px rgba(34, 197, 94, 0.2)' 
+            : '0 8px 32px 0px rgba(239, 68, 68, 0.4), 0 4px 16px 0px rgba(239, 68, 68, 0.2)', 
         }}>
-          🪙 Available Tokens
-        </h3>
-        
-        {balanceLoading ? (
-          <div style={{ padding: '12px', fontSize: '14px', color: '#6b7280' }}>
-            Loading tokens...
-          </div>
-        ) : filteredTokens.length === 0 ? (
-          <div style={{ padding: '12px', fontSize: '14px', color: '#ef4444' }}>
-            No tokens found
-          </div>
-        ) : (
-          <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-            {filteredTokens.map((token, index) => (
-              <div 
-                key={index} 
-                onClick={() => {
-                  const tokenId = getTokenId(token);
-                  setSelectedTokenId(selectedTokenId === tokenId ? null : tokenId);
-                }}
-                style={{
-                  background: selectedTokenId === getTokenId(token) ? '#dcfce7' : '#f9fafb',
-                  border: selectedTokenId === getTokenId(token) ? '4px solid #22c55e' : '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  padding: '16px',
-                  marginBottom: '8px',
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Typography variant="h6" sx={{ 
+                fontWeight: 700, 
+                color: '#fff', 
+                textShadow: '0 1px 8px #000',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
+              }}>
+                {mintInfo.canMintNow ? '🟢' : '🔴'} Card Mint Status
+              </Typography>
+              <Box
+                onClick={blockRefetch}
+                sx={{ 
+                  color: '#ffd700',
                   cursor: 'pointer',
-                  position: 'relative'
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 215, 0, 0.1)'
+                  }
                 }}
               >
-                {selectedTokenId === getTokenId(token) && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '8px',
-                    right: '8px',
-                    color: '#10b981',
-                    fontSize: '18px'
-                  }}>
-                  </div>
-                )}
-                
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  marginBottom: '8px'
+                {blockLoading ? <CircularProgress size={20} sx={{ color: '#ffd700' }} /> : <RefreshIcon />}
+              </Box>
+            </Box>
+            
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Typography variant="body2" sx={{ color: '#fff', fontWeight: 500 }}>
+                Current Block: <strong>{mintInfo.currentBlock?.toLocaleString()}</strong>
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#fff', fontWeight: 500 }}>
+                Next Mint Block: <strong>{mintInfo.nextMintBlock?.toLocaleString()}</strong>
+              </Typography>
+              
+              {mintInfo.canMintNow ? (
+                <Typography variant="body1" sx={{ 
+                  color: '#fff', 
+                  fontWeight: 700,
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  padding: '8px 12px',
+                  borderRadius: 2,
+                  border: '1px solid rgba(255, 255, 255, 0.2)'
                 }}>
-                  <div>
-                    <span style={{ 
-                      fontWeight: '600', 
-                      fontSize: '16px',
-                      color: '#1f2937'
-                    }}>
-                      {token.symbol || token.name}
-                    </span>
-                    <span style={{ 
-                      marginLeft: '8px',
-                      fontSize: '14px',
-                      color: '#6b7280'
-                    }}>
-                      ({token.spacedName})
-                    </span>
-                  </div>
-                  <span style={{ 
-                    fontWeight: '700',
-                    fontSize: '18px',
-                    color: selectedTokenId === getTokenId(token) ? '#166534' : '#10b981'
+                  🚀 Send your mint transaction now!
+                </Typography>
+              ) : (
+                <Box>
+                  <Typography variant="body1" sx={{ 
+                    color: '#fff', 
+                    fontWeight: 700,
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    padding: '8px 12px',
+                    borderRadius: 2,
+                    border: '1px solid rgba(255, 255, 255, 0.2)'
                   }}>
-                    {token.balance}
-                  </span>
-                </div>
-                
-                <div style={{ 
-                  fontSize: '12px', 
-                  color: '#6b7280',
-                  lineHeight: '1.4'
-                }}>
-                  <div>ID: {token.id.block}:{token.id.tx}</div>
-                  <div>UTXO: {token.outpoint.standardTxid.slice(0, 16)}...:{token.outpoint.vout}</div>
-                  <div>Value: {token.output.value} sats</div>
-                  {token.height && <div>Height: {token.height}</div>}
-                </div>
-                
-                {selectedTokenId === getTokenId(token) && (
-                  <div style={{
-                    marginTop: '12px',
-                    padding: '8px',
-                    background: '#dcfce7',
-                    borderRadius: '6px',
-                    fontSize: '11px',
-                    color: '#166534',
-                    fontWeight: '500'
-                  }}>
-                    💫 Click again to deselect • Full UTXO: {token.outpoint.standardTxid}:{token.outpoint.vout}
-                  </div>
+                    ⏳ Wait {mintInfo.blocksUntilNextMint} more blocks (~{mintInfo.hoursUntilNextMint}h {mintInfo.minutesUntilNextMint}m)
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tokens List & Header */}
+      {connected && (
+        <Card sx={{ mb: 2, background: 'linear-gradient(135deg, #2d1b4e 60%, #7c3aed 100%)', border: '2px solid #ffd700', boxShadow: '0 8px 32px 0px rgba(255, 215, 0, 0.5), 0 4px 16px 0px rgba(124, 58, 237, 0.3)' }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <EmojiEventsIcon sx={{ color: '#ffd700', fontSize: 32, filter: 'drop-shadow(0 0 6px #ffd70088)' }} />
+                <Typography variant="h5" sx={{ fontWeight: 700, color: '#fffbe6', textShadow: '0 1px 8px #000, 0 0 6px #ffd70088' }}>
+                  Select ARBUZ to Mint Card
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {!tokensLoading && !tokensError && tokens.length > 0 && (
+                  <Chip 
+                    label={`${tokens.length} Alkane${tokens.length !== 1 ? 's' : ''}`}
+                    color="primary"
+                    variant="outlined"
+                  />
                 )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      
-      {/* Две кнопки Claim */}
-      <div style={{ 
-        display: 'flex',
-        justifyContent: 'center',
-        gap: '24px',
-        marginBottom: '32px'
-      }}>
-        <button 
-          onClick={handleClaim}
-          disabled={loading || loading2}
-          className="button button-primary"
-          style={{
-            background: '#8b5cf6',
-            borderColor: '#8b5cf6',
-            padding: '24px 48px',
-            fontSize: '18px',
-            fontWeight: '700',
-            borderRadius: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '8px',
-            opacity: (loading || loading2) ? 0.6 : 1,
-            minWidth: '200px'
-          }}
-        >
-          <span style={{ fontSize: '32px' }}>🎯</span>
-          <span>CLAIM</span>
-          <span style={{ fontSize: '14px', opacity: 0.8 }}>
-            {selectedToken ? `Send ${selectedToken.balance} ${selectedToken.symbol}` : 'Resolve contract'}
-          </span>
-        </button>
-
-        <button 
-          onClick={handleClaim2}
-          disabled={loading || loading2}
-          className="button button-primary"
-          style={{
-            background: '#f59e0b',
-            borderColor: '#f59e0b',
-            padding: '24px 48px',
-            fontSize: '18px',
-            fontWeight: '700',
-            borderRadius: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '8px',
-            opacity: (loading || loading2) ? 0.6 : 1,
-            minWidth: '200px'
-          }}
-        >
-          <span style={{ fontSize: '32px' }}>🟡</span>
-          <span>CLAIM2</span>
-          <span style={{ fontSize: '14px', opacity: 0.8 }}>
-            {selectedToken ? `Send ${selectedToken.balance} ${selectedToken.symbol}` : 'Resolve2 contract'}
-          </span>
-        </button>
-      </div>
-
-      {/* Loading статусы */}
-      {(loading || loading2) && (
-        <div className="status loading">
-          {loading && loading2 ? 'Processing both contracts...' : 
-           loading ? 'Resolving contract...' : 
-           'Resolving contract2...'}
-        </div>
+                <Box
+                  onClick={tokensRefetch}
+                  sx={{ 
+                    ml: 1, 
+                    color: '#ffd700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 40,
+                    height: 40,
+                    borderRadius: '50%',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 215, 0, 0.1)'
+                    }
+                  }}
+                >
+                  <RefreshIcon />
+                </Box>
+              </Box>
+            </Box>
+            <Box>
+              {tokensLoading && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#ffd700', fontWeight: 700, mb: 2 }}>
+                  <CircularProgress size={20} sx={{ color: '#ffd700' }} />
+                  Loading Alkanes...
+                </Box>
+              )}
+              {!tokensLoading && !tokensError && (
+                <>
+                  {tokens.length > 0 ? (
+                    <Box>
+                      {tokens.map((token, index) => {
+                        const tokenId = getTokenId(token);
+                        const selected = selectedTokenId === tokenId;
+                        return (
+                          <Paper
+                            key={index}
+                            className={`arbuz-card-${index}`}
+                            onClick={() => handleTokenClick(token)}
+                            sx={{
+                              mb: 2,
+                              p: 2,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              background: selected
+                                ? 'linear-gradient(90deg, #ffd700 0%, #fffbe6 100%)'
+                                : 'linear-gradient(90deg, #7c3aed 0%, #2d1b4e 100%)',
+                              color: selected ? '#2d1b4e' : '#fffbe6',
+                              border: selected ? '2.5px solid #ffd700' : '1.5px solid #ffd70055',
+                              boxShadow: selected ? '0 0 16px 2px #ffd700cc' : '0 0 8px 1px #7c3aed55',
+                              borderRadius: 3,
+                              cursor: 'pointer',
+                              transition: 'all 0.18s',
+                              '&:hover': {
+                                boxShadow: '0 0 24px 4px #ffd700cc',
+                                background: 'linear-gradient(90deg, #ffd700 0%, #fffbe6 100%)',
+                                color: '#2d1b4e',
+                              },
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                              <img 
+                                src={arbuzLogo} 
+                                alt="Arbuz" 
+                                style={{ 
+                                  width: '64px', 
+                                  height: '64px',
+                                  opacity: 0.3,
+                                  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
+                                  marginLeft: '-16px',
+                                  marginTop: '-8px',
+                                  transition: 'opacity 0.18s'
+                                }} 
+                                className="arbuz-logo"
+                              />
+                              <Box>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 700, textShadow: '0 1px 6px #000, 0 0 4px #ffd70055' }}>
+                                  {token.runes[0].rune.name}
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontFamily: 'monospace', opacity: 0.85 }}>
+                                  {parseInt(token.runes[0].rune.id.block, 16)}:{parseInt(token.runes[0].rune.id.tx, 16)}
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontFamily: 'monospace', opacity: 0.7, fontSize: '0.75rem' }}>
+                                  UTXO: {token.outpoint.txid.slice(0, 8)}...{token.outpoint.txid.slice(-8)}:{token.outpoint.vout}
+                                </Typography>
+                              </Box>
+                            </Box>
+                            <Box sx={{ textAlign: 'right' }}>
+                              <Typography variant="h6" sx={{ fontWeight: 700, textShadow: '0 1px 8px #000, 0 0 6px #ffd70088' }}>
+                                {(parseInt(token.runes[0].balance, 16) / (10 ** 8)).toLocaleString()}
+                              </Typography>
+                              <Typography variant="body2" sx={{ fontWeight: 700, color: selected ? '#2d1b4e' : '#ffd700' }}>
+                                {token.runes[0].rune.symbol}
+                              </Typography>
+                            </Box>
+                          </Paper>
+                        );
+                      })}
+                    </Box>
+                  ) : (
+                    <Alert severity="warning" sx={{ mt: 2, borderRadius: 2, fontWeight: 700 }}>
+                      No ARBUZ Alkanes found. You need ARBUZ Alkanes to mint cards.
+                    </Alert>
+                  )}
+                </>
+              )}
+            </Box>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Error статусы */}
-      {error && (
-        <div className="status error">
-          Error (CLAIM): {error}
-        </div>
-      )}
+      {/* Модальное окно для минта */}
+      <Dialog open={openMintModal} onClose={handleCloseModal} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pr: 2 }}>
+          <span style={{ fontWeight: 700, color: '#ffd700', fontSize: 20 }}>Mint Card</span>
+          <IconButton onClick={handleCloseModal} size="small"><CloseIcon /></IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="subtitle1" sx={{ mb: 1, mt: 1, textAlign: 'center' }}>
+            Fee Rate Selection
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2, justifyContent: 'center', width: '250px', margin: '0 auto 16px auto' }}>
+            <FeeButton
+              label="Current"
+              value={fees?.normal}
+              selected={selectedFee === 'normal'}
+              onClick={() => setSelectedFee('normal')}
+              disabled={feesLoading}
+            />
+            <FeeButton
+              label="Custom"
+              value={customFee}
+              selected={selectedFee === 'custom'}
+              onClick={() => setSelectedFee('custom')}
+              inputMode={selectedFee === 'custom'}
+              inputValue={customFee}
+              onInputChange={e => setCustomFee(e.target.value)}
+              onInputBlur={() => { if (!customFee) setSelectedFee('normal'); }}
+              disabled={feesLoading}
+            />
+          </Box>
+          
+          {/* Показываем кнопку и состояния минта только если UTXO еще не отправлен */}
+          {(() => {
+            const savedResult = selectedTokenId ? utxoResults[selectedTokenId] : null;
+            const isAlreadySent = savedResult?.success;
+            
+            return !isAlreadySent && (
+              <>
+                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                  <Button
+                    onClick={handleMintCard}
+                    disabled={minting || feesLoading}
+                    sx={{
+                      px: 5,
+                      py: 1.5,
+                      fontWeight: 700,
+                      fontSize: '1.1rem',
+                      borderRadius: 4,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: (minting || feesLoading)
+                        ? 'linear-gradient(90deg, #7c3aed 0%, #a78bfa 100%)'
+                        : 'linear-gradient(90deg, #ffd700 0%, #fffbe6 100%)',
+                      color: '#ffffff',
+                      textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                      boxShadow: (minting || feesLoading)
+                        ? '0 0 16px 2px #7c3aedaa'
+                        : '0 0 16px 2px #ffd70088',
+                      border: (minting || feesLoading)
+                        ? '2px solid #7c3aed'
+                        : '2px solid #ffd700',
+                      letterSpacing: 1,
+                      transition: 'all 0.18s',
+                      '&:hover': {
+                        background: (minting || feesLoading)
+                          ? 'linear-gradient(90deg, #7c3aed 0%, #a78bfa 100%)'
+                          : 'linear-gradient(90deg, #ffd700 0%, #fffbe6 100%)',
+                        color: '#ffffff',
+                        boxShadow: (minting || feesLoading)
+                          ? '0 0 24px 4px #7c3aedcc'
+                          : '0 0 24px 4px #ffd700cc',
+                      },
+                    }}
+                  >
+                    MINT CARD
+                  </Button>
+                </Box>
+                {minting && (
+                  <Alert severity="info" icon={false} sx={{ mt: 3, borderRadius: 2, fontWeight: 700 }}>
+                    <CircularProgress size={18} sx={{ color: '#ffd700', mr: 1 }} />
+                    Signing Transaction...
+                  </Alert>
+                )}
+                {error && (
+                  <Alert severity="error" sx={{ mt: 3, borderRadius: 2, fontWeight: 700 }} icon={<ErrorIcon />}>
+                    {error}
+                  </Alert>
+                )}
+              </>
+            );
+          })()}
 
-      {error2 && (
-        <div className="status error">
-          Error (CLAIM2): {error2}
-        </div>
-      )}
-
-      {/* Result для первой кнопки */}
-      {result && (
-        <div style={{ 
-          background: '#f0fdf4', 
-          border: '1px solid #bbf7d0',
-          borderRadius: '12px',
-          padding: '20px',
-          marginTop: '24px'
-        }}>
-          <h3 style={{ color: '#166534', margin: '0 0 16px 0' }}>✅ Contract resolved! (CLAIM)</h3>
-          <div style={{ fontSize: '14px', color: '#065f46' }}>
-            <p><strong>TX Hash:</strong> {result.txHash}</p>
-            <p><strong>Fee:</strong> {result.fee} sats</p>
-            <p><strong>Contract:</strong> {result.contract}</p>
-            <p><strong>Opcode:</strong> {result.opcode}</p>
-            <p><strong>Tokens:</strong> {result.tokensUsed}</p>
-            <p><strong>Transaction Size:</strong> {result.size} vbytes</p>
-          </div>
-        </div>
-      )}
-
-      {/* Result для второй кнопки */}
-      {result2 && (
-        <div style={{ 
-          background: '#fffbeb', 
-          border: '1px solid #fbbf24',
-          borderRadius: '12px',
-          padding: '20px',
-          marginTop: '24px'
-        }}>
-          <h3 style={{ color: '#d97706', margin: '0 0 16px 0' }}>🟡 Contract2 resolved! (CLAIM2)</h3>
-          <div style={{ fontSize: '14px', color: '#92400e' }}>
-            <p><strong>TX Hash:</strong> {result2.txHash}</p>
-            <p><strong>Fee:</strong> {result2.fee} sats</p>
-            <p><strong>Contract:</strong> {result2.contract}</p>
-            <p><strong>Opcode:</strong> {result2.opcode}</p>
-            <p><strong>Tokens:</strong> {result2.tokensUsed}</p>
-            <p><strong>Transaction Size:</strong> {result2.size} vbytes</p>
-          </div>
-        </div>
-      )}
-    </div>
+          {(() => {
+            // Определяем, какой результат показывать - текущий или сохранённый
+            const currentTxid = txid;
+            const savedResult = selectedTokenId ? utxoResults[selectedTokenId] : null;
+            const displayTxid = currentTxid || (savedResult?.success ? savedResult.txid : null);
+            
+            return displayTxid && (
+              <Card sx={{ mt: 4, background: 'linear-gradient(135deg, #2d1b4e 60%, #7c3aed 100%)', border: '2px solid #ffd700', boxShadow: '0 8px 32px 0px rgba(255, 215, 0, 0.5), 0 4px 16px 0px rgba(124, 58, 237, 0.3)' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                    <CheckCircleIcon sx={{ color: '#ffd700', fontSize: 28, filter: 'drop-shadow(0 0 6px #ffd70088)' }} />
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#fffbe6', textShadow: '0 1px 8px #000, 0 0 6px #ffd70088' }}>
+                      Mint transaction sent!
+                    </Typography>
+                  </Box>
+                  <Box sx={{ color: '#fffbe6', fontSize: '1rem', fontFamily: 'monospace', ml: 1 }}>
+                    <div><strong>TXID:</strong> {displayTxid}</div>
+                    <div style={{ marginTop: '8px' }}>
+                      <a 
+                        href={`https://mempool.space/signet/tx/${displayTxid}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        style={{ color: '#ffd700', textDecoration: 'underline', fontWeight: 700 }}
+                      >
+                        View on Explorer
+                      </a>
+                    </div>
+                  </Box>
+                </CardContent>
+              </Card>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+    </Box>
   );
 }
 

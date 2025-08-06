@@ -1,6 +1,6 @@
-# Getting Started with Create React App
+# Magic Arbuz
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A React application for Magic Arbuz NFT cards and blockchain interactions.
 
 ## Available Scripts
 

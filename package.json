@@ -1,21 +1,23 @@
 {
-  "name": "yuzu",
+  "name": "magic-arbuz",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@oyl/sdk": "^1.17.0",
-    "@testing-library/dom": "^10.4.0",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.1.0",
-    "@testing-library/user-event": "^13.2.1",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.2.0",
+    "@mui/material": "^7.2.0",
+    "@omnisat/lasereyes-core": "^0.0.79",
+    "@omnisat/lasereyes-react": "^0.0.74",
+    "@oyl/sdk": "github:Oyl-Wallet/oyl-sdk",
     "alkanes": "^0.1.0",
     "assert": "^2.1.0",
-    "axios": "^1.10.0",
+    "axios": "^0.27.2",
     "bitcoinjs-lib": "^6.1.7",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
-    "https-browserify": "^1.0.0",
     "os-browserify": "^0.3.0",
+    "path-browserify": "^1.0.1",
     "process": "^0.11.10",
     "react": "^19.1.0",
     "react-app-rewired": "^2.2.1",
@@ -23,13 +25,12 @@
     "react-router-dom": "^7.6.2",
     "react-scripts": "5.0.1",
     "stream-browserify": "^3.0.0",
-    "stream-http": "^3.2.0",
     "url": "^0.11.4",
-    "web-vitals": "^2.1.0"
+    "vm-browserify": "^1.1.2"
   },
   "scripts": {
     "start": "react-app-rewired start",
-    "build": "DISABLE_ESLINT_PLUGIN=true CI=false GENERATE_SOURCEMAP=false react-app-rewired build",
+    "build": "react-app-rewired build",
     "test": "react-app-rewired test",
     "eject": "react-scripts eject"
   },
@@ -50,9 +51,5 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  },
-  "devDependencies": {
-    "path-browserify": "^1.0.1",
-    "vm-browserify": "^1.1.2"
   }
 }

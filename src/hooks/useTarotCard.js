@@ -5,7 +5,7 @@ export function useTarotCard() {
   const [error, setError] = useState(null);
   const [cardData, setCardData] = useState(null);
 
-  // Функция для декодирования hex в UTF-8
+  // Function to decode hex to UTF-8
   const hexToUtf8 = useCallback((hex) => {
     if (hex.startsWith("0x")) hex = hex.slice(2);
     const bytes = new Uint8Array(hex.length / 2);
@@ -16,7 +16,7 @@ export function useTarotCard() {
     return decoder.decode(bytes);
   }, []);
 
-  // Функция для выполнения симуляции
+  // Function to perform simulation
   const simulateAlkanes = useCallback(async (params = {}) => {
     setLoading(true);
     setError(null);
@@ -33,19 +33,18 @@ export function useTarotCard() {
             "block": "0x",
             "height": "20000",
             "txindex": 0,
-            "target": { "block": "2", "tx": "14" },
-            "inputs": ["1000"],
             "pointer": 0,
             "refundPointer": 0,
             "vout": 0,
-            ...params // Позволяем переопределить параметры
+            ...params // Allow overriding parameters
           }
         ]
       };
 
-      console.log('🚀 Отправляем запрос на сервер:', requestBody);
+      console.log('🚀 Sending request to server with parameters:', params);
+      console.log('🚀 Full request:', requestBody);
 
-      const response = await fetch('http://localhost:18888', {
+      const response = await fetch('https://mainnet.sandshrew.io/v2/lasereyes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -53,14 +52,14 @@ export function useTarotCard() {
         body: JSON.stringify(requestBody)
       });
 
-      console.log('📡 Ответ сервера - статус:', response.status);
+      console.log('📡 Server response - status:', response.status);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('📦 Полученные данные:', data);
+      console.log('📦 Received data:', data);
 
       if (data.error) {
         throw new Error(`RPC error: ${data.error.message || 'Unknown error'}`);
@@ -72,24 +71,24 @@ export function useTarotCard() {
         throw new Error('No result in response');
       }
 
-      console.log('🔍 Результат:', result);
-      console.log('🔍 Поле result.data:', result.data);
-      console.log('🔍 Поле result.execution.data:', result.execution?.data);
+          console.log('🔍 Result:', result);
+    console.log('🔍 Field result.data:', result.data);
+    console.log('🔍 Field result.execution.data:', result.execution?.data);
 
-      // Декодируем hex данные - данные лежат в result.execution.data
+      // Decode hex data - data is in result.execution.data
       let decodedData = null;
       const hexData = result.execution?.data || result.data;
       
       if (hexData && hexData !== "0x") {
         try {
           decodedData = hexToUtf8(hexData);
-          console.log('✅ Декодированные данные:', decodedData);
+          console.log('✅ Decoded data:', decodedData);
         } catch (decodeError) {
-          console.warn('⚠️ Не удалось декодировать hex данные:', decodeError);
-          decodedData = hexData; // Оставляем как есть если не получилось декодировать
+          console.warn('⚠️ Failed to decode hex data:', decodeError);
+          decodedData = hexData; // Leave as is if decoding failed
         }
       } else {
-        console.warn('⚠️ Поле data пустое или отсутствует в result.execution.data и result.data');
+        console.warn('⚠️ Field data is empty or missing in result.execution.data and result.data');
       }
 
       const cardResult = {
@@ -104,7 +103,7 @@ export function useTarotCard() {
       return cardResult;
 
     } catch (err) {
-      console.error('❌ Ошибка при симуляции:', err);
+      console.error('❌ Error during simulation:', err);
       setError(err.message);
       throw err;
     } finally {
@@ -112,13 +111,13 @@ export function useTarotCard() {
     }
   }, [hexToUtf8]);
 
-  // Функция для загрузки карты таро
+  // Function to load tarot card
   const loadTarotCard = useCallback(async (cardParams) => {
     try {
       const result = await simulateAlkanes(cardParams);
       
       if (result.decodedData) {
-        // Если получили JS код карты, создаем его на странице
+        // If we received JS code for the card, create it on the page
         return result.decodedData;
       } else {
         throw new Error('No decoded data received');
@@ -126,9 +125,9 @@ export function useTarotCard() {
     } catch (err) {
       console.error('Error loading tarot card:', err);
       
-      // Если сервер недоступен, предлагаем использовать mock данные
+      // If server is unavailable, suggest using mock data
       if (err.message.includes('Failed to fetch') || err.message.includes('HTTP error')) {
-        console.log('🔄 Сервер недоступен, предлагаем использовать mock данные');
+                  console.log('🔄 Server unavailable, suggesting to use mock data');
         throw new Error('Server unavailable. Please start the server on localhost:18888 or use fallback mode.');
       }
       
@@ -138,31 +137,32 @@ export function useTarotCard() {
 
 
 
-  // Функция для выполнения JS кода карты
+  // Function to execute card JS code
   const executeTarotCard = useCallback((jsCode, containerId) => {
     try {
-      console.log('🔥 Выполняем JavaScript код:', jsCode.substring(0, 200) + '...');
+      console.log('🔥 Executing JavaScript code:', jsCode.substring(0, 200) + '...');
       
-      // Просто выполняем код и сразу ищем функцию
+      // Simply execute the code and immediately look for the function
       const wrappedCode = `
         ${jsCode}
         
-        // Автоматически вызываем функцию
+        // Automatically call the function
         if (typeof createTarotCard === 'function') {
-          console.log('📦 Функция createTarotCard найдена, вызываем...');
+          console.log('📦 Function createTarotCard found, calling...');
           createTarotCard('${containerId}');
-          window.createTarotCard = createTarotCard; // Сохраняем в window
-        } else {
-          console.error('❌ Функция createTarotCard не найдена в коде');
+                      window.createTarotCard = createTarotCard; // Save to window
+                  } else {
+            console.error('❌ Function createTarotCard not found in code');
         }
       `;
       
+      // eslint-disable-next-line no-eval
       eval(wrappedCode);
-      console.log('✅ JavaScript код выполнен');
+              console.log('✅ JavaScript code executed');
       
       return true;
     } catch (err) {
-      console.error('❌ Ошибка при выполнении JS кода карты:', err);
+      console.error('❌ Error executing card JS code:', err);
       setError(`Failed to execute tarot card: ${err.message}`);
       return false;
     }

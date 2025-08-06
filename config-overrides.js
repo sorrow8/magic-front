@@ -1,57 +1,50 @@
 const webpack = require('webpack');
 
-module.exports = function override(config) {
+module.exports = function override(config, env) {
+  // Add all necessary fallbacks
   config.resolve.fallback = {
     ...config.resolve.fallback,
+    "crypto": require.resolve("crypto-browserify"),
+    "stream": require.resolve("stream-browserify"),
     "assert": require.resolve("assert"),
     "buffer": require.resolve("buffer"),
-    "crypto": require.resolve("crypto-browserify"),
-    "https": require.resolve("https-browserify"),
-    "http": require.resolve("stream-http"),
-    "os": require.resolve("os-browserify/browser"),
-    "path": require.resolve("path-browserify"),
-    "process": require.resolve("process/browser.js"),
-    "stream": require.resolve("stream-browserify"),
+    "process": require.resolve("process/browser"),
     "url": require.resolve("url"),
+    "path": require.resolve("path-browserify"),
+    "os": require.resolve("os-browserify/browser"),
     "vm": require.resolve("vm-browserify"),
-    "fs": false,
-    "net": false,
-    "tls": false,
-    "child_process": false,
-    "readline": false,
-    "zlib": false
   };
 
-  // Настройки для ES модулей
-  config.resolve.extensionAlias = {
-    ...config.resolve.extensionAlias,
-    ".js": [".ts", ".tsx", ".js", ".jsx"],
-    ".mjs": [".mts", ".mjs"]
-  };
-
+  // Add plugins
   config.plugins = [
     ...config.plugins,
     new webpack.ProvidePlugin({
-      Buffer: ["buffer", "Buffer"],
-      process: "process/browser.js"
+      process: 'process/browser',
+      Buffer: ['buffer', 'Buffer'],
     }),
-    new webpack.DefinePlugin({
-      global: 'globalThis',
-    })
   ];
 
-  config.ignoreWarnings = [
-    /Failed to parse source map/,
-    /Critical dependency: the request of a dependency is an expression/,
-  ];
+  // Fix for process/browser resolution
+  config.resolve.alias = {
+    ...config.resolve.alias,
+    'process': 'process/browser',
+  };
 
-  // Отключение требования полной спецификации для модулей
+  // Fix for ES modules
   config.module.rules.push({
     test: /\.m?js$/,
     resolve: {
       fullySpecified: false,
     },
   });
-  
+
+  // Suppress warnings for node modules
+  config.ignoreWarnings = [
+    /Failed to parse source map/,
+    /Module not found: Can't resolve/,
+    /Critical dependency: the request of a dependency is an expression/,
+    /Can't resolve 'process\/browser'/,
+  ];
+
   return config;
 }; 
